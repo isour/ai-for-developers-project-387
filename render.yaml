@@ -1,0 +1,10 @@
+# Blueprint для Render: Docker-образ из корневого Dockerfile.
+# После деплоя подставьте публичный URL в README (секция «Деплой»).
+services:
+  - type: web
+    name: calendar-calls
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /

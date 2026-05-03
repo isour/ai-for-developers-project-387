@@ -1,0 +1,521 @@
+openapi: 3.0.0
+info:
+  title: Календарь звонков API
+  version: 1.0.0
+  summary: |-
+    Без регистрации и авторизации по учётным записям. Владелец — один профиль админской части;
+    гость бронирует слот публично. Окно гостевой записи по умолчанию — 14 дней от текущей даты;
+    два бронирования не могут пересекаться по времени, даже при разных типах событий.
+    Слоты строятся по рабочему дню **09:00–18:00**; длительность встречи — **30 или 60 минут** (шаг сетки совпадает с длительностью типа).
+    Стиль: **REST** (ресурсы, множественное число в путях коллекций, при необходимости субресурсы).
+    Привязка маршрутов описана через **@typespec/http** совместно с библиотекой **@typespec/rest** (общие соглашения и расширяемость).
+tags:
+  - name: guest
+    description: Публичные операции без входа в систему.
+  - name: owner
+    description: 'Админская часть: типы событий и список бронирований.'
+paths:
+  /guest/bookings:
+    post:
+      operationId: GuestBookings_create
+      description: Создать бронирование на свободный слот.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - guest
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestBookingRequest'
+  /guest/event-types:
+    get:
+      operationId: GuestEventTypes_list
+      description: Карточки типов событий для выбора бронирования.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+              example:
+                - id: intro-30
+                  title: Знакомство, 30 минут
+                  description: 'Короткий созвон: цели, контекст, следующие шаги.'
+                  durationMinutes: 30
+                - id: deep-dive-60
+                  title: Рабочая сессия, 60 минут
+                  description: Разбор задачи, демонстрация, фиксация договорённостей.
+                  durationMinutes: 60
+      tags:
+        - guest
+  /guest/event-types/{eventTypeId}/available-slots:
+    get:
+      operationId: GuestSlots_list
+      description: |-
+        Свободные слоты для типа события на полуинтервале `[from, to)`.
+        Запросы вне гостевого окна (14 дней от «сегодня» на сервере) — `422`.
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AvailableSlot'
+              example:
+                - startAt: '2026-05-15T09:00:00+03:00'
+                  endAt: '2026-05-15T09:30:00+03:00'
+                - startAt: '2026-05-15T09:30:00+03:00'
+                  endAt: '2026-05-15T10:00:00+03:00'
+                - startAt: '2026-05-15T10:00:00+03:00'
+                  endAt: '2026-05-15T10:30:00+03:00'
+                - startAt: '2026-05-15T10:30:00+03:00'
+                  endAt: '2026-05-15T11:00:00+03:00'
+                - startAt: '2026-05-15T11:00:00+03:00'
+                  endAt: '2026-05-15T11:30:00+03:00'
+                - startAt: '2026-05-15T11:30:00+03:00'
+                  endAt: '2026-05-15T12:00:00+03:00'
+                - startAt: '2026-05-15T12:00:00+03:00'
+                  endAt: '2026-05-15T12:30:00+03:00'
+                - startAt: '2026-05-15T12:30:00+03:00'
+                  endAt: '2026-05-15T13:00:00+03:00'
+                - startAt: '2026-05-15T13:00:00+03:00'
+                  endAt: '2026-05-15T13:30:00+03:00'
+                - startAt: '2026-05-15T13:30:00+03:00'
+                  endAt: '2026-05-15T14:00:00+03:00'
+                - startAt: '2026-05-15T14:00:00+03:00'
+                  endAt: '2026-05-15T14:30:00+03:00'
+                - startAt: '2026-05-15T14:30:00+03:00'
+                  endAt: '2026-05-15T15:00:00+03:00'
+                - startAt: '2026-05-15T15:00:00+03:00'
+                  endAt: '2026-05-15T15:30:00+03:00'
+                - startAt: '2026-05-15T15:30:00+03:00'
+                  endAt: '2026-05-15T16:00:00+03:00'
+                - startAt: '2026-05-15T16:00:00+03:00'
+                  endAt: '2026-05-15T16:30:00+03:00'
+                - startAt: '2026-05-15T16:30:00+03:00'
+                  endAt: '2026-05-15T17:00:00+03:00'
+                - startAt: '2026-05-15T17:00:00+03:00'
+                  endAt: '2026-05-15T17:30:00+03:00'
+                - startAt: '2026-05-15T17:30:00+03:00'
+                  endAt: '2026-05-15T18:00:00+03:00'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '422':
+          description: Client error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - guest
+  /owner/bookings:
+    get:
+      operationId: OwnerBookings_list
+      description: Бронирования всех типов в окне времени `[from, to)`.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Начало окна (UTC).
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: to
+          in: query
+          required: true
+          description: Конец окна (UTC), не включается.
+          schema:
+            type: string
+            format: date-time
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+              example:
+                - id: bkg-mock-1
+                  eventTypeId: intro-30
+                  startAt: '2026-05-07T10:00:00+03:00'
+                  endAt: '2026-05-07T10:30:00+03:00'
+                  guestDisplayName: Анна Петрова
+                  guestContact: anna@example.com
+                - id: bkg-mock-2
+                  eventTypeId: deep-dive-60
+                  startAt: '2026-05-08T14:00:00+03:00'
+                  endAt: '2026-05-08T15:00:00+03:00'
+                  guestDisplayName: Иван Смирнов
+                  guestContact: ivan.smirnov@example.com
+                - id: bkg-mock-3
+                  eventTypeId: intro-30
+                  startAt: '2026-05-12T11:30:00+03:00'
+                  endAt: '2026-05-12T12:00:00+03:00'
+                  guestDisplayName: Ольга Климова
+                  guestContact: +7 900 555-12-34
+                - id: bkg-mock-4
+                  eventTypeId: deep-dive-60
+                  startAt: '2026-05-20T09:00:00+03:00'
+                  endAt: '2026-05-20T10:00:00+03:00'
+                  guestDisplayName: Демо без контакта
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - owner
+  /owner/event-types:
+    get:
+      operationId: OwnerEventTypes_list
+      description: Список всех типов событий.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventType'
+              example:
+                - id: intro-30
+                  title: Знакомство, 30 минут
+                  description: 'Короткий созвон: цели, контекст, следующие шаги.'
+                  durationMinutes: 30
+                - id: deep-dive-60
+                  title: Рабочая сессия, 60 минут
+                  description: Разбор задачи, демонстрация, фиксация договорённостей.
+                  durationMinutes: 60
+      tags:
+        - owner
+    post:
+      operationId: OwnerEventTypes_create
+      description: Создать тип события (`POST` по коллекции).
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventTypeCreate'
+  /owner/event-types/{eventTypeId}:
+    get:
+      operationId: OwnerEventTypeResource_get
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - owner
+    patch:
+      operationId: OwnerEventTypeResource_update
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventType'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EventTypeUpdate'
+    delete:
+      operationId: OwnerEventTypeResource_remove
+      parameters:
+        - name: eventTypeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '409':
+          description: The request conflicts with the current state of the server.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+      tags:
+        - owner
+components:
+  schemas:
+    AvailableSlot:
+      type: object
+      required:
+        - startAt
+        - endAt
+      properties:
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+      description: Интервал свободного слота `[startAt, endAt)`.
+      example:
+        startAt: '2026-05-15T09:00:00+03:00'
+        endAt: '2026-05-15T09:30:00+03:00'
+    Booking:
+      type: object
+      required:
+        - id
+        - eventTypeId
+        - startAt
+        - endAt
+      properties:
+        id:
+          type: string
+        eventTypeId:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+        endAt:
+          type: string
+          format: date-time
+        guestDisplayName:
+          type: string
+          description: Необязательная метка гостя (имя, как обращаться на созвоне).
+        guestContact:
+          type: string
+          description: Необязательный контакт — без верификации аккаунта.
+      description: Подтверждённое бронирование.
+      example:
+        id: bkg-mock-1
+        eventTypeId: intro-30
+        startAt: '2026-05-12T10:00:00+03:00'
+        endAt: '2026-05-12T10:30:00+03:00'
+        guestDisplayName: Анна Петрова
+        guestContact: anna@example.com
+    EventType:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+          description: Стабильный идентификатор (напр. slug или UUID строкой).
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: number
+          enum:
+            - 30
+            - 60
+          description: Длительность в минутах; совпадает с шагом сетки слотов (30 или 60).
+      description: Тип события (шаблон встречи), задаётся владельцем.
+      example:
+        id: intro-30
+        title: Знакомство, 30 минут
+        description: 'Короткий созвон: цели, контекст, следующие шаги.'
+        durationMinutes: 30
+    EventTypeCreate:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - durationMinutes
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: number
+          enum:
+            - 30
+            - 60
+    EventTypeUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        durationMinutes:
+          type: number
+          enum:
+            - 30
+            - 60
+          description: При смене длительности реализации следует решить судьбу существующих бронирований.
+    GuestBookingRequest:
+      type: object
+      required:
+        - eventTypeId
+        - startAt
+      properties:
+        eventTypeId:
+          type: string
+        startAt:
+          type: string
+          format: date-time
+          description: Начало брони; конец выводится как startAt + durationMinutes типа (проверка на сервере).
+        guestDisplayName:
+          type: string
+        guestContact:
+          type: string
+    Problem:
+      type: object
+      required:
+        - message
+      properties:
+        code:
+          type: string
+          description: Краткий код причины (по желанию стабильное имя приложения).
+        message:
+          type: string
+          description: Пояснение для человека или клиента.
+      description: Детали ошибки в теле ответа.
+servers:
+  - url: https://localhost
+    description: Пример локального сервера
+    variables: {}
